@@ -1,7 +1,7 @@
 import streamlit as st
 import torch
 import torch.nn as nn
-import torchvision
+import torchvision.models as models
 from PIL import Image
 from torchvision import transforms
 import numpy as np
@@ -12,7 +12,8 @@ NUM_CLASSES = 2
 class BreastCancerClassifier(nn.Module):
     def __init__(self):
         super(BreastCancerClassifier, self).__init__()
-        self.model = torchvision.models.resnet18(pretrained=False)
+        # Use the latest weight loading method
+        self.model = models.resnet18(weights=None)
         
         num_features = self.model.fc.in_features
         self.model.fc = nn.Sequential(
@@ -34,7 +35,8 @@ class BreastCancerClassifier(nn.Module):
 
 def load_model(model_path):
     model = BreastCancerClassifier()
-    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+    # Use weights_only=True for security
+    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu'), weights_only=True))
     model.eval()
     return model
 
@@ -56,9 +58,12 @@ def predict(model, image):
 def main():
     st.title('Breast Cancer Histopathology Image Classifier')
     
-    # Model loading
+    # Model loading with error handling
     try:
         model = load_model('breast_cancer_model.pth')
+    except FileNotFoundError:
+        st.error("Model file not found. Please ensure 'breast_cancer_model.pth' is in the correct directory.")
+        return
     except Exception as e:
         st.error(f"Error loading model: {e}")
         return
