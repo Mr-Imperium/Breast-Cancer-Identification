@@ -13,7 +13,7 @@ class BreastCancerClassifier(nn.Module):
     def __init__(self):
         super(BreastCancerClassifier, self).__init__()
         # Use the latest weight loading method
-        self.model = models.resnet18(weights=None)
+        self.model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
         
         num_features = self.model.fc.in_features
         self.model.fc = nn.Sequential(
@@ -35,14 +35,24 @@ class BreastCancerClassifier(nn.Module):
 
 def load_model(model_path):
     model = BreastCancerClassifier()
-    # Use weights_only=True for security
-    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu'), weights_only=True))
-    model.eval()
-    return model
+    try:
+        # Use map_location to ensure CPU loading
+        state_dict = torch.load(model_path, map_location=torch.device('cpu'))
+        
+        # Remove 'model.' prefix if it exists in keys
+        if any(k.startswith('model.') for k in state_dict.keys()):
+            state_dict = {k.replace('model.', ''): v for k, v in state_dict.items()}
+        
+        model.load_state_dict(state_dict)
+        model.eval()
+        return model
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
+        return None
 
 def transform_image(image):
     transform = transforms.Compose([
-        transforms.Resize((50, 50)),
+        transforms.Resize((224, 224)),  # Changed to match ResNet18 expected input
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
@@ -61,13 +71,12 @@ def main():
     # Model loading with error handling
     try:
         model = load_model('breast_cancer_model.pth')
+        if model is None:
+            return
     except FileNotFoundError:
         st.error("Model file not found. Please ensure 'breast_cancer_model.pth' is in the correct directory.")
         return
-    except Exception as e:
-        st.error(f"Error loading model: {e}")
-        return
-
+    
     # File uploader
     uploaded_file = st.file_uploader(
         "Choose a breast histopathology image...", 
