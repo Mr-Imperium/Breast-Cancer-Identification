@@ -12,10 +12,13 @@ NUM_CLASSES = 2
 class BreastCancerClassifier(nn.Module):
     def __init__(self):
         super(BreastCancerClassifier, self).__init__()
-        # Use the latest weight loading method
-        self.model = models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+        # Create base model
+        self.model = models.resnet18(weights=None)
         
+        # Get number of features in the last layer
         num_features = self.model.fc.in_features
+        
+        # Custom fully connected layers
         self.model.fc = nn.Sequential(
             nn.Linear(num_features, 512),
             nn.ReLU(),
@@ -36,18 +39,19 @@ class BreastCancerClassifier(nn.Module):
 def load_model(model_path):
     model = BreastCancerClassifier()
     try:
-        # Use weights_only=True and explicit map_location
+        # Load state dict with weights_only=True
         state_dict = torch.load(model_path, map_location='cpu', weights_only=True)
         
-        # Check if the state_dict keys need modification
-        if any(k.startswith('model.') for k in state_dict.keys()):
-            state_dict = {k.replace('model.', ''): v for k, v in state_dict.items()}
+        # Remove 'model.' prefix from keys if present
+        cleaned_state_dict = {}
+        for k, v in state_dict.items():
+            if k.startswith('model.'):
+                cleaned_state_dict[k.replace('model.', '')] = v
+            else:
+                cleaned_state_dict[k] = v
         
-        # Validate state dict
-        model_dict = model.state_dict()
-        filtered_state_dict = {k: v for k, v in state_dict.items() if k in model_dict}
-        
-        model.load_state_dict(filtered_state_dict)
+        # Load the cleaned state dict
+        model.load_state_dict(cleaned_state_dict)
         model.eval()
         return model
     except Exception as e:
@@ -56,7 +60,7 @@ def load_model(model_path):
 
 def transform_image(image):
     transform = transforms.Compose([
-        transforms.Resize((224, 224)),  # ResNet18 expected input
+        transforms.Resize((50, 50)),  # Match training script's resize
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
