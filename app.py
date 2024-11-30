@@ -36,14 +36,18 @@ class BreastCancerClassifier(nn.Module):
 def load_model(model_path):
     model = BreastCancerClassifier()
     try:
-        # Use map_location to ensure CPU loading
-        state_dict = torch.load(model_path, map_location=torch.device('cpu'))
+        # Use weights_only=True and explicit map_location
+        state_dict = torch.load(model_path, map_location='cpu', weights_only=True)
         
-        # Remove 'model.' prefix if it exists in keys
+        # Check if the state_dict keys need modification
         if any(k.startswith('model.') for k in state_dict.keys()):
             state_dict = {k.replace('model.', ''): v for k, v in state_dict.items()}
         
-        model.load_state_dict(state_dict)
+        # Validate state dict
+        model_dict = model.state_dict()
+        filtered_state_dict = {k: v for k, v in state_dict.items() if k in model_dict}
+        
+        model.load_state_dict(filtered_state_dict)
         model.eval()
         return model
     except Exception as e:
@@ -52,7 +56,7 @@ def load_model(model_path):
 
 def transform_image(image):
     transform = transforms.Compose([
-        transforms.Resize((224, 224)),  # Changed to match ResNet18 expected input
+        transforms.Resize((224, 224)),  # ResNet18 expected input
         transforms.ToTensor(),
         transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
     ])
@@ -72,6 +76,7 @@ def main():
     try:
         model = load_model('breast_cancer_model.pth')
         if model is None:
+            st.error("Failed to load the model.")
             return
     except FileNotFoundError:
         st.error("Model file not found. Please ensure 'breast_cancer_model.pth' is in the correct directory.")
