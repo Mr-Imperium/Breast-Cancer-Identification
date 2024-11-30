@@ -39,19 +39,24 @@ class BreastCancerClassifier(nn.Module):
 def load_model(model_path):
     model = BreastCancerClassifier()
     try:
-        # Load state dict with weights_only=True
-        state_dict = torch.load(model_path, map_location='cpu', weights_only=True)
+        # Load state dict 
+        state_dict = torch.load(model_path, map_location='cpu')
         
-        # Remove 'model.' prefix from keys if present
-        cleaned_state_dict = {}
+        # Create a new state dictionary with corrected keys
+        new_state_dict = {}
         for k, v in state_dict.items():
+            # Remove 'model.' prefix if it exists
             if k.startswith('model.'):
-                cleaned_state_dict[k.replace('model.', '')] = v
+                new_key = k.replace('model.', '')
             else:
-                cleaned_state_dict[k] = v
+                new_key = k
+            
+            # Remove any 'num_batches_tracked' keys
+            if 'num_batches_tracked' not in new_key:
+                new_state_dict[new_key] = v
         
-        # Load the cleaned state dict
-        model.load_state_dict(cleaned_state_dict)
+        # Load the cleaned state dict with strict=False to allow for some mismatches
+        model.load_state_dict(new_state_dict, strict=False)
         model.eval()
         return model
     except Exception as e:
